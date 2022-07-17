@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<canvas id="gl-canvas" width="512" height="512"> </canvas>
+
+<button id="Buttoncircle">Toggle circle distortion</button>
+<button id="Buttonbarrel">Toggle barrel distortion</button>
+<button id="ButtonClose">reset distortion</button>
+<button id="ButtonToon">Toggle toon/edge detection</button>
+<button id="ButtonBase">Toggle base texture</button>
+<button id="ButtonSharp">Toggle blur</button>
+<button id="ButtonRipple">Toggle ripple</button>
+<button id="ButtonImpression">Toggle impression</button>
+<button id="ButtonTidal">Toggle tidal</button>
+<button id="ButtonManga">Toggle manga</button>
+
+<div>
+    BarrelDirection 0<input id="barrelPower" type="range" min="0.0" max="1.0" step="1.0"
+        value="1.0" />
+        1
+</div>
+<div>
+    R filter 0<input id="Red" type="range" min="0.0" max="1.0" step="0.1"
+        value="1.0" />
+        1
+</div>
+<div>
+    G filter 0<input id="Green" type="range" min="0.0" max="1.0" step="0.1"
+        value="1.0" />
+        1
+</div>
+<div>
+    B filter 0<input id="Blue" type="range" min="0.0" max="1.0" step="0.1"
+        value="1.0" />
+        1
+</div>
+
+<script id="vertex-shader" type="x-shader/x-vertex">
+#version 300 es
+in  vec4 aPosition;
+in  vec2 aTexCoord;
+in  vec3 aNormal;
+
+out vec2 fTexCoord;
+
+out vec3 projTexCoord;
+out vec3 lightDirection;
+out vec3 FragPos;
+out vec3 fNormal;
+    
+
+uniform mat4 modelViewMatrix;
+uniform mat4 projectionMatrix;
+uniform mat4 lightProjectionMatrix;
+uniform mat4 lightViewMatrix;
+uniform vec3 lightPosition;
+
+uniform  int disCardNormal;
+
+
+void main()
+{
+    vec4 objLightPosition = lightProjectionMatrix * lightViewMatrix * aPosition;
+
+    projTexCoord = 0.5 * objLightPosition.xyz + 0.5;
+    lightDirection =normalize(lightPosition - aPosition.xyz);
+    
+    
+    float pi = acos(0.0);
+    
+    float s= 0.5*acos(aPosition.x)/pi;
+    
+    float t = 0.5*asin(aPosition.y/sqrt(1.0-aPosition.x*aPosition.x))/pi;
+    //if(disCardNormal == 1){
+        //fTexCoord = vec2(s,t);
+        //fTexCoord = aTexCoord;
+    //}else{
+        //fTexCoord = aTexCoord;
+    //}
+    fTexCoord = aTexCoord;
+    
+    //gl_Position = projectionMatrix*modelViewMatrix * aPosition;
+    gl_Position =  aPosition;
+    gl_Position.z = -gl_Position.z;
+
+    vec4 tempMatrix = modelViewMatrix * aPosition;
+    FragPos = vec3(tempMatrix);
+    fNormal = aNormal; 
+
+}
+</script>
+
+<script id="fragment-shader" type="x-shader/x-fragment">
+#version 300 es
+precision mediump float;
+
+in vec2 fTexCoord;
+in vec3 FragPos;
+in vec3 fNormal;
+
+in vec3 lightDirection;
+
+
+//Texture
+uniform sampler2D uTextureMap;
+uniform int useMaterial;
+uniform int toon;
+uniform int distortion;
+uniform int show_base;
+uniform int sharp;
+uniform int ripple_switch;
+uniform int impression_switch;
+uniform int tidal_switch;
+uniform int manga_switch;
+
+uniform vec4 uColor; 
+
+// for testing
+//vec4 setColor = vec4(1, 1, 1, 1);
+
+uniform float u_time;
+uniform float barrelp;
+
+
+out vec4 fColor;
+
+//Light Color
+vec3 lightColor = vec3(1.0, 1.0, 1.0);
+vec3 objectColor = vec3(1.0, 1.0, 1.0);
+vec3 viewPos = vec3(0, 1, 0);
+
+// https://prideout.net/barrel-distortion
+
+vec2 startAt ;
+vec2 barrelDistortion(vec2 vector)
+{
+    //uColor = vec4(0, distortion, 0, 1);
+
+    float theta = atan(vector.y, vector.x);
+    float radius = length(vector);
+    radius = pow(radius, barrelp);
+
+    // set x and y to negative to prevent 180 rotation
+    vector.x = -radius * cos(theta);
+    vector.y = -radius * sin(theta);
+
+    //return 0.5 * (( startAt - vector) + 1.0);
+    return 0.5 * (vector + 1.0);
+}
+
+const float PI = 3.1415926535;
+// https://www.shadertoy.com/view/XtcSDX           
+vec2 circleDistort(){ 
+    //uColor = vec4(distortion, 0, 0, 1);
+
+    vec2 scale = vec2(10.0, 10.0);
+    
+    vec2 uv = fTexCoord.xy ;
+    
+    float v = 0.0;
+    vec2 distort = uv * scale - scale/2.0;
+    v += sin(sqrt(distort.x*distort.x + distort.y * distort.y) + u_time + 1.0);
+    
+    distort = vec2(sin(PI*v*0.35),cos(PI*v*0.35));
+    vec2 texCord;
+    
+    texCord = uv+distort;
+    return texCord;
+}	
+
+// http://adrianboeing.blogspot.com/2011/02/ripple-effect-in-webgl.html 
+vec3 ripple(){
+    vec2 cPos = -1.0 + 2.0 * fTexCoord.xy ;
+    float cLength = sqrt(fTexCoord.x*fTexCoord.x + fTexCoord.y*fTexCoord.y);
+    
+    vec2 uv = fTexCoord.xy+ 0.05 * (cPos/cLength)*cos(cLength*70.0- u_time*2.0);
+    vec3 col = texture(uTextureMap,uv).xyz;
+    return col;
+}
+
+vec3 impression(){
+    vec2 cPos = -1.0 + 2.0 * fTexCoord.xy ;
+    float cLength = sqrt(fTexCoord.x*fTexCoord.x + fTexCoord.y*fTexCoord.y);
+    
+    vec2 uv = fTexCoord.xy+ (cPos/cLength)*cos(cLength*0.1-u_time*4.0)*0.05;
+    vec3 col = texture(uTextureMap,uv).xyz;
+    return col;
+}
+
+vec3 tidal(){
+    vec2 cPos = -1.0 + 2.0 * fTexCoord.xy ;
+    float cLength = sqrt(fTexCoord.x*fTexCoord.x + fTexCoord.y*fTexCoord.y);
+    
+    vec2 uv = fTexCoord.xy+ 0.05 * (cPos/cLength)*cos(cLength*70.0 / sin(u_time/20.0)- u_time*2.0);
+    vec3 col = texture(uTextureMap,uv).xyz;
+    return col;
+}
+
+// https://www.shadertoy.com/view/XsV3Rd 
+vec4 manga(sampler2D uTextureMap, vec2 uv){
+    vec4 texColor = vec4(texture( uTextureMap, uv ).rgb, 1.0);
+    // Initialize the variables
+    vec4 white = vec4(1.0, 1.0, 1.0, 1.0);
+    vec4 black = vec4(0.0, 0.0, 0.0, 1.0);
+    // Average the color out
+	float average = texColor.r + texColor.g + texColor.b;
+    average = average/3.0;
+    
+    // Check if it's closer to white or black
+    if (average <= 0.5)
+    {
+        texColor = black;
+    }
+    else 
+        texColor = white;
+
+    return texColor;
+}
+
+vec4 manga2(sampler2D uTextureMap, vec2 uv){
+    vec4 texColor = vec4(texture( uTextureMap, uv ).rgb, 1.0);
+    // Initialize the variables
+    vec4 white = vec4(1.0, 1.0, 1.0, 1.0);
+    vec4 white50 = vec4(0.5, 0.5, 0.5, 0.5);
+    vec4 black = vec4(0.0, 0.0, 0.0, 1.0);
+    // Average the color out
+	float average = texColor.r + texColor.g + texColor.b;
+    average = average/3.0;
+    
+    // Check if it's closer to white or black
+    if (average <= 0.33)
+    {
+        texColor = black;
+    }
+    else if (average < 0.66 && average >0.33){
+        texColor = white50;
+    }
+    else 
+        texColor = white;
+
+    return texColor;
+}
+
+
+vec3 edge(sampler2D uTextureMap, vec2 uv){
+    vec3 LUMCOEFFS = vec3(0.2125, 0.7154, 0.0721);
+    //vec3 LUMCOEFFS = vec3(0.5, 0.5, 0.5);
+    // set u_textureSize as 64 (placeholder)
+    vec2 stp0 = vec2(1.0, 0)/64.0;
+    vec2 st0p = vec2(0, 1.0)/64.0;
+    vec2 stpp = vec2(1.0, 1.0)/64.0;
+    vec2 stpm = vec2(1.0, -1.0)/64.0;
+    // take samples 
+    
+    float i00 = dot(texture(uTextureMap, uv).rgb, LUMCOEFFS);
+    float im1m1 = dot(texture(uTextureMap, uv-stpp).rgb, LUMCOEFFS);
+    float ip1p1 = dot(texture(uTextureMap, uv+stpp).rgb, LUMCOEFFS);
+    float im1p1 = dot(texture(uTextureMap, uv-stpm).rgb, LUMCOEFFS);
+    float ip1m1 = dot(texture(uTextureMap, uv+stpm).rgb, LUMCOEFFS);
+    float im10 = dot(texture(uTextureMap, uv-stp0).rgb, LUMCOEFFS);
+    float ip10 = dot(texture(uTextureMap, uv+stp0).rgb, LUMCOEFFS);
+    float i0m1 = dot(texture(uTextureMap, uv-st0p).rgb, LUMCOEFFS);
+    float i0p1 = dot(texture(uTextureMap, uv+st0p).rgb, LUMCOEFFS);
+
+    
+    float h = -1.0 * im1p1 - 2.0 * i0p1 -1.0 * ip1p1 + 1.0 * im1m1 +2.0 * i0m1 + 1.0 * ip1m1;
+    float v = -1.0 * im1m1 - 2.0 * im10 -1.0 * im1p1 + 1.0 * ip1m1 +2.0 * ip10 + 1.0 * ip1p1;
+
+    float mag = sqrt(h*h + v*v);
+    vec3 target = vec3(mag, mag, mag);
+    return target;
+}
+
+vec3 sharpen(sampler2D uTextureMap, vec2 uv){
+
+    // set u_textureSize as 64 (placeholder)
+    vec2 stp0 = vec2(1.0, 0)/64.0;
+    vec2 st0p = vec2(0, 1.0)/64.0;
+    vec2 stpp = vec2(1.0, 1.0)/64.0;
+    vec2 stpm = vec2(1.0, -1.0)/64.0;
+    // take samples 
+    
+    vec3 i00 = texture(uTextureMap, uv).rgb;
+    vec3 im1m1 = texture(uTextureMap, uv-stpp).rgb;
+    vec3 ip1p1 = texture(uTextureMap, uv+stpp).rgb;
+    vec3 im1p1 = texture(uTextureMap, uv-stpm).rgb;
+    vec3 ip1m1 = texture(uTextureMap, uv+stpm).rgb;
+    vec3 im10 = texture(uTextureMap, uv-stp0).rgb;
+    vec3 ip10 = texture(uTextureMap, uv+stp0).rgb;
+    vec3 i0m1 = texture(uTextureMap, uv-st0p).rgb;
+    vec3 i0p1 = texture(uTextureMap, uv+st0p).rgb;
+
+    vec3 target = vec3(0,0,0);
+    target +=1.0 *(im1m1 +ip1m1 +ip1p1 +im1p1);
+    target +=2.0 *(im10 +ip10 +i0m1 +i0p1);
+    target +=8.0 *(i00);
+    target /=16.0;
+
+    return target;
+}
+    
+void main()
+{    
+    vec2 uv; 
+
+    float k = sin(u_time);
+    if(distortion==1){
+        uv = fTexCoord.xy;
+        startAt = vec2(0,0);
+        
+        vec2 vector = 2.0 * uv - 1.0;
+        vector = startAt - vector;
+        float distance = length(vector);
+        
+        if (distance < 10.0)
+        {
+            
+            uv = barrelDistortion(vector);    
+        } 
+    }else if(distortion==2){
+        
+        uv = circleDistort();
+    }else{
+        //uColor = vec4(distortion, 0, 0, 1);
+        uv = fTexCoord;
+    }
+    
+
+    // Phong lighting 
+    // ambient
+    float ambientStrength = 0.1;
+    vec3 ambient = ambientStrength * lightColor;
+        
+    // diffuse 
+    vec3 norm = normalize(fNormal);
+    vec3 lightDir = lightDirection;//normalize(lightPos - FragPos);
+    float diff = max(dot(norm, lightDir), 0.0);
+    vec3 diffuse = diff * lightColor;
+    
+    // specular
+    float specularStrength = 0.5;
+    vec3 viewDir = normalize(viewPos - FragPos);
+    vec3 reflectDir = reflect(-lightDir, norm);  
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
+    vec3 specular = specularStrength * spec * lightColor;  
+        
+    vec3 result = (ambient + diffuse + specular) * objectColor;
+    //fColor = vec4(result, 1.0)* texture( uTextureMap, uv );
+    //fColor = uColor * texture( uTextureMap, uv );
+    vec3 edge_detect = edge(uTextureMap, uv);
+    vec3 sharpening = sharpen(uTextureMap, uv);
+    vec4 manga_effect = manga(uTextureMap, uv);
+    vec4 manga_effect2 = manga2(uTextureMap, uv);
+
+    vec4 ripple_effect = vec4(ripple(), 1);
+    vec4 impression_effect = vec4(impression(), 1);
+    vec4 tidal_effect = vec4(tidal(), 1);
+    
+
+    vec4 await_color = uColor;
+    
+    
+    if (sharp == 1){
+        await_color = await_color * vec4(sharpening, 1);
+    }
+     
+    if (toon == 1){
+        await_color =vec4(edge_detect, 1)* await_color; 
+    }
+
+    if (show_base == 1){
+        await_color = await_color*texture( uTextureMap, uv ) ;
+    }
+
+    if (ripple_switch == 1){
+        await_color= await_color * ripple_effect;
+    }
+    
+    if (impression_switch == 1){
+        await_color= await_color * impression_effect;
+    }
+
+    if ( tidal_switch == 1){
+        await_color= await_color * tidal_effect;
+    }
+
+    if ( manga_switch == 1){
+        await_color= await_color * manga_effect;
+    }
+    else if ( manga_switch == 2){
+        await_color= await_color * manga_effect2;
+    }
+
+    fColor = await_color;
+    
+}
+</script>
+
+
+
+</script>
+
+<script src="../Common/initShaders.js"></script>
+<script src="../Common/MVnew.js"></script>
+<script src="images.js"></script>
+<script src="Prog4_yuncheng.js"></script>
+
+
+</body>
+</html>
