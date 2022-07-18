@@ -1,37 +1,51 @@
 <!DOCTYPE html>
 <html>
-<body>
+<body style="background-color:rgb(48, 62, 75);">
 
 <canvas id="gl-canvas" width="512" height="512"> </canvas>
+<br>
+<ul style="background-color:rgb(145, 138, 138); width: 260px;">
+    <li><button id="ButtonClose">reset distortion</button></li>
+    <li><button id="Buttoncircle">Toggle circle distortion</button></li>
+    <li><button id="Buttonbarrel">Toggle barrel distortion</button></li>
+</ul>
 
-<button id="Buttoncircle">Toggle circle distortion</button>
-<button id="Buttonbarrel">Toggle barrel distortion</button>
-<button id="ButtonClose">reset distortion</button>
-<button id="ButtonToon">Toggle toon/edge detection</button>
-<button id="ButtonBase">Toggle base texture</button>
-<button id="ButtonSharp">Toggle blur</button>
-<button id="ButtonRipple">Toggle ripple</button>
-<button id="ButtonImpression">Toggle impression</button>
-<button id="ButtonTidal">Toggle tidal</button>
-<button id="ButtonManga">Toggle manga</button>
+<ul style="background-color:rgb(193, 187, 187); width: 260px;">
+    <li><button id="ButtonBase">Toggle base texture</button></li>
+    <li><button id="ButtonToon">Toggle toon/edge detection</button></li>
+    <li><button id="ButtonManga">Toggle manga</button></li>
+    <li><button id="ButtonSharp">Toggle blur</button></li>
+</ul>
 
-<div>
+<ul style="background-color:rgb(233, 227, 227); width: 260px;">
+    <li><button id="ButtonRipple">Toggle ripple</button></li>
+    <li><button id="ButtonImpression">Toggle impression</button></li>
+    <li><button id="ButtonTidal">Toggle tidal</button></li>
+</ul>
+
+
+
+
+
+
+
+<div  style="background-color:rgb(145, 138, 138); width: 260px;">
     BarrelDirection 0<input id="barrelPower" type="range" min="0.0" max="1.0" step="1.0"
         value="1.0" />
         1
 </div>
-<div>
-    R filter 0<input id="Red" type="range" min="0.0" max="1.0" step="0.1"
+<div style="background-color:rgb(199, 155, 155); width: 260px;">
+    R filter        0<input id="Red" type="range" min="0.0" max="1.0" step="0.1"
         value="1.0" />
         1
 </div>
-<div>
-    G filter 0<input id="Green" type="range" min="0.0" max="1.0" step="0.1"
+<div style="background-color:rgb(156, 197, 144); width: 260px;">
+    G filter        0<input id="Green" type="range" min="0.0" max="1.0" step="0.1"
         value="1.0" />
         1
 </div>
-<div>
-    B filter 0<input id="Blue" type="range" min="0.0" max="1.0" step="0.1"
+<div style="background-color:rgb(174, 189, 209); width: 260px;">
+    B filter        0<input id="Blue" type="range" min="0.0" max="1.0" step="0.1"
         value="1.0" />
         1
 </div>
