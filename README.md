@@ -7,7 +7,7 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-A project to expriment with different types of image processing techniques. 
+A project to experiment with different types of image processing techniques. 
 
 ### Prerequisites
 
